@@ -1,7 +1,12 @@
 const Joi = require('joi');
 const express = require('express');
+const logger = require('./logger');
+const helmet = require('helmet');
+const morgan = require('morgan');
 const app = express();
 const port = process.env.PORT || 3000;
+
+console.log(app.get('env'))
 
 class App {
 
@@ -13,7 +18,14 @@ class App {
             {id:1, courseName: 'New to C'},
             {id:2, courseName: 'New to Python'},
             {id:3, courseName: 'New to JS'}
-        ]
+        ];
+        this.genres = [
+            {id:1, genre: 'Horror'},
+            {id:2, genre: 'Scifi'},
+            {id:3, genre: 'Fantasy'},
+            {id:4, genre: 'Comedy'},
+            {id:5, genre: 'Action'}
+        ];
     }
 
     init() {
@@ -27,6 +39,17 @@ class App {
 
     middleWareInitialiser() {
         this.app.use(express.json());
+        this.app.use(express.urlencoded({ extended: true }));
+        this.app.use(express.static('public'));
+        this.app.use(helmet());
+        if (this.app.get('env') === 'development') {
+            this.app.use(morgan('tiny'));
+        }
+        this.app.use(logger)
+        this.app.use((req, res, next) => {
+            console.log('Authenticaing...');
+            next();
+        });
     }
 
     getRoutes() {
@@ -45,21 +68,46 @@ class App {
                 res.send(returnedCourse)
             }
         })
+        this.app.get('/api/genres', (req, res) => {
+            res.send(this.genres)
+        });
+        this.app.get('/api/genres/:id', (req, res) => {
+            const returnedCourse = this.genres.find((course) => { return course.id === parseInt(req.params.id) })
+
+            if (!returnedCourse) {
+                res.status(404).send('Not found');
+            } else {
+                res.send(returnedCourse)
+            }
+        })
     }
 
     postRoutes() {
         this.app.post('/api/courses', (req, res) => {
-            const result = this.validateCourse(req.body);
-            if (result.error) {
-                res.status(400).send(result.error.details[0].message);
+            const { error } = this.validateCourse(req.body);
+            if (error) {
+                res.status(400).send(error.details[0].message);
                 return;
             } 
             const course = {
                 id: this.courses.length + 1,
-                name: req.body.courseName
+                courseName: req.body.courseName
             }
             this.courses.push(course);
             res.send(this.courses);
+        })
+        this.app.post('/api/genres', (req, res) => {
+            const { error } = this.validateCourse(req.body);
+            if (error) {
+                res.status(400).send(error.details[0].message);
+                return;
+            } 
+            const course = {
+                id: this.genres.length + 1,
+                name: req.body.genre
+            }
+            this.genres.push(course);
+            res.send(this.genres);
         })
     }
 
@@ -72,18 +120,59 @@ class App {
                 res.status(404).send('Course not found.')
                 return;
             }
-            const result = this.validateCourse(req.body);
-            if (result.error) {
-                res.status(400).send(result.error.details[0].message);
+            const { error } = this.validateCourse(req.body);
+            if (error) {
+                res.status(400).send(error.details[0].message);
                 return;
             } 
             selectedObject.courseName = req.body.courseName;
             res.send(this.courses);
         })
+
+        this.app.put('/api/genres/:id', (req, res) => {
+            const selectedObject = this.genres.find((course) => {
+                return course.id === parseInt(req.params.id)
+            })
+            if (!selectedObject) {
+                res.status(404).send('Course not found.')
+                return;
+            }
+            const { error } = this.validateCourse(req.body);
+            if (error) {
+                res.status(400).send(error.details[0].message);
+                return;
+            } 
+            selectedObject.genre = req.body.genre;
+            res.send(this.genres);
+        })
     }
 
     deleteRoutes() {
+        this.app.delete('/api/courses/:id', (req, res) => {
+            const selectedObject = this.courses.find((course) => {
+                return course.id === parseInt(req.params.id)
+            })
+            if (!selectedObject) {
+                res.status(404).send('Course not found.')
+                return;
+            }
+            const index = this.courses.indexOf(selectedObject);
+            this.courses.splice(index, 1);
+            res.send(this.courses);
+        })
 
+        this.app.delete('/api/genres/:id', (req, res) => {
+            const selectedObject = this.genres.find((course) => {
+                return course.id === parseInt(req.params.id)
+            })
+            if (!selectedObject) {
+                res.status(404).send('Course not found.')
+                return;
+            }
+            const index = this.genres.indexOf(selectedObject);
+            this.genres.splice(index, 1);
+            res.send(this.genres);
+        })
     }
 
     serverIntialiser() {
@@ -102,15 +191,4 @@ class App {
 }
 
 new App();
-
-// app.get('/', (req, res) => {
-//     res.send('Hello World!')
-// });
-
-// app.get('/api/courses', (req, res) => {
-//     const courses = [
-//         { courseName: 'My course' }
-//     ]
-//     res.send(courses)
-// });
 
