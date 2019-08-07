@@ -1,10 +1,14 @@
+
 const Joi = require('joi');
 const express = require('express');
 const logger = require('./logger');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const config = require('config');
 const app = express();
 const port = process.env.PORT || 3000;
+
+const courses = require('./routes/courses');
 
 console.log(app.get('env'))
 
@@ -14,11 +18,7 @@ class App {
         this.app = express();
         this.joi = Joi;
         this.init();
-        this.courses = [
-            {id:1, courseName: 'New to C'},
-            {id:2, courseName: 'New to Python'},
-            {id:3, courseName: 'New to JS'}
-        ];
+
         this.genres = [
             {id:1, genre: 'Horror'},
             {id:2, genre: 'Scifi'},
@@ -26,6 +26,8 @@ class App {
             {id:4, genre: 'Comedy'},
             {id:5, genre: 'Action'}
         ];
+
+        this.coursesRoutes = courses;
     }
 
     init() {
@@ -38,6 +40,8 @@ class App {
     }
 
     middleWareInitialiser() {
+        this.app.set('view engine', 'pug');
+        this.app.set('views', './views');
         this.app.use(express.json());
         this.app.use(express.urlencoded({ extended: true }));
         this.app.use(express.static('public'));
@@ -50,24 +54,16 @@ class App {
             console.log('Authenticaing...');
             next();
         });
+        this.app.use('/api/courses', courses);
     }
 
     getRoutes() {
         this.app.get('/', (req, res) => {
-            res.send('Hello World!')
+            res.render('index', {
+                title: 'My express app',
+                message: 'Hello!'
+            });
         });
-        this.app.get('/api/courses', (req, res) => {
-            res.send(this.courses)
-        });
-        this.app.get('/api/courses/:id', (req, res) => {
-            const returnedCourse = this.courses.find((course) => { return course.id === parseInt(req.params.id) })
-
-            if (!returnedCourse) {
-                res.status(404).send('Not found');
-            } else {
-                res.send(returnedCourse)
-            }
-        })
         this.app.get('/api/genres', (req, res) => {
             res.send(this.genres)
         });
@@ -83,19 +79,6 @@ class App {
     }
 
     postRoutes() {
-        this.app.post('/api/courses', (req, res) => {
-            const { error } = this.validateCourse(req.body);
-            if (error) {
-                res.status(400).send(error.details[0].message);
-                return;
-            } 
-            const course = {
-                id: this.courses.length + 1,
-                courseName: req.body.courseName
-            }
-            this.courses.push(course);
-            res.send(this.courses);
-        })
         this.app.post('/api/genres', (req, res) => {
             const { error } = this.validateCourse(req.body);
             if (error) {
@@ -112,23 +95,6 @@ class App {
     }
 
     updateRoutes() {
-        this.app.put('/api/courses/:id', (req, res) => {
-            const selectedObject = this.courses.find((course) => {
-                return course.id === parseInt(req.params.id)
-            })
-            if (!selectedObject) {
-                res.status(404).send('Course not found.')
-                return;
-            }
-            const { error } = this.validateCourse(req.body);
-            if (error) {
-                res.status(400).send(error.details[0].message);
-                return;
-            } 
-            selectedObject.courseName = req.body.courseName;
-            res.send(this.courses);
-        })
-
         this.app.put('/api/genres/:id', (req, res) => {
             const selectedObject = this.genres.find((course) => {
                 return course.id === parseInt(req.params.id)
@@ -148,19 +114,6 @@ class App {
     }
 
     deleteRoutes() {
-        this.app.delete('/api/courses/:id', (req, res) => {
-            const selectedObject = this.courses.find((course) => {
-                return course.id === parseInt(req.params.id)
-            })
-            if (!selectedObject) {
-                res.status(404).send('Course not found.')
-                return;
-            }
-            const index = this.courses.indexOf(selectedObject);
-            this.courses.splice(index, 1);
-            res.send(this.courses);
-        })
-
         this.app.delete('/api/genres/:id', (req, res) => {
             const selectedObject = this.genres.find((course) => {
                 return course.id === parseInt(req.params.id)
